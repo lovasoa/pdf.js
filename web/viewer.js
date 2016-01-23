@@ -116,8 +116,10 @@ var PDFViewerApplication = {
   preferencePdfBugEnabled: false,
   preferenceShowPreviousViewOnLoad: true,
   preferenceDefaultZoomValue: '',
+  preferenceDisablePageLabels: false,
   isViewerEmbedded: (window.parent !== window),
   url: '',
+  hasPageLabels: false,
 
   // called once when the document is loaded
   initialize: function pdfViewInitialize() {
@@ -244,6 +246,9 @@ var PDFViewerApplication = {
       passwordCancel: document.getElementById('passwordCancel')
     });
 
+    this.pageNumberInput = document.getElementById('pageNumber');
+    this.numPagesLabel = document.getElementById('numPages');
+
     var self = this;
     var initializedPromise = Promise.all([
       Preferences.get('enableWebGL').then(function resolved(value) {
@@ -297,6 +302,9 @@ var PDFViewerApplication = {
         }
         PDFJS.externalLinkTarget = value;
       }),
+      Preferences.get('disablePageLabels').then(function resolved(value) {
+        self.preferenceDisablePageLabels = value;
+      }),
       // TODO move more preferences and other async stuff here
     ]).catch(function (reason) { });
 
@@ -336,11 +344,19 @@ var PDFViewerApplication = {
   },
 
   set page(val) {
-    this.pdfLinkService.page = val;
+    this.pdfViewer.currentPageNumber = val;
   },
 
-  get page() { // TODO remove
-    return this.pdfLinkService.page;
+  get page() {
+    return this.pdfViewer.currentPageNumber;
+  },
+
+  set pageLabel(val) {
+    this.pdfViewer.currentPageLabel = val;
+  },
+
+  get pageLabel() {
+    return this.pdfViewer.currentPageLabel;
   },
 
   get supportsPrinting() {
@@ -814,10 +830,7 @@ var PDFViewerApplication = {
       self.loadingBar.hide();
     });
 
-    var pagesCount = pdfDocument.numPages;
-    document.getElementById('numPages').textContent =
-      mozL10n.get('page_of', {pageCount: pagesCount}, 'of {{pageCount}}');
-    document.getElementById('pageNumber').max = pagesCount;
+    this._resetPageNumberUI(null);
 
     var id = this.documentFingerprint = pdfDocument.fingerprint;
     var store = this.store = new ViewHistory(id);
@@ -843,7 +856,8 @@ var PDFViewerApplication = {
     this.pageRotation = 0;
     this.isInitialViewSet = false;
 
-    this.pdfThumbnailViewer.setDocument(pdfDocument);
+    var pdfThumbnailViewer = this.pdfThumbnailViewer;
+    pdfThumbnailViewer.setDocument(pdfDocument);
 
     firstPagePromise.then(function(pdfPage) {
       downloadedPromise.then(function () {
@@ -920,6 +934,27 @@ var PDFViewerApplication = {
         self.pdfViewer.currentScaleValue = self.pdfViewer.currentScaleValue;
         self.setInitialView(initialParams.hash, scale);
       });
+    });
+
+    pdfDocument.getPageLabels().then(function (labels) {
+      if (self.preferenceDisablePageLabels) {
+        return;
+      }
+      if (!labels) {
+        return;
+      }
+      // Ignore page labels that correspond to standard page numbering.
+      var i = 0, ii = labels.length;
+      while (i < ii && labels[i] === (i + 1).toString()) {
+        i++;
+      }
+      if (i === ii) {
+        return;
+      }
+      pdfViewer.setPageLabels(labels);
+      pdfThumbnailViewer.setPageLabels(labels);
+
+      self._resetPageNumberUI(labels);
     });
 
     pagesPromise.then(function() {
@@ -1063,11 +1098,6 @@ var PDFViewerApplication = {
 
   setInitialView: function pdfViewSetInitialView(storedHash, scale) {
     this.isInitialViewSet = true;
-
-    // When opening a new file, when one is already loaded in the viewer,
-    // ensure that the 'pageNumber' element displays the correct value.
-    document.getElementById('pageNumber').value =
-      this.pdfViewer.currentPageNumber;
 
     if (this.initialDestination) {
       this.pdfLinkService.navigateTo(this.initialDestination);
@@ -1309,7 +1339,53 @@ var PDFViewerApplication = {
       return;
     }
     this.pdfPresentationMode.mouseScroll(delta);
-  }
+  },
+
+  /**
+   * @param {Array|null} pageLabels
+   * @private
+   */
+  _resetPageNumberUI: function pdfView_resetPageNumberUI(pageLabels) {
+    this.hasPageLabels = !!pageLabels;
+    var pagesCount = this.pagesCount;
+
+    if (!this.hasPageLabels) {
+      this.pageNumberInput.type = 'number';
+      this.pageNumberInput.max = pagesCount;
+
+      this.pageNumberInput.value = this.page;
+      this.numPagesLabel.textContent =
+        mozL10n.get('of_pages', { pageCount: pagesCount }, 'of {{pageCount}}');
+    } else {
+      this.pageNumberInput.type = 'text';
+
+      this.pageNumberInput.value = this.pageLabel;
+      this.numPagesLabel.textContent = mozL10n.get('page_of_pages',
+        { pageNumber: this.page, pageCount: pagesCount },
+        '({{pageNumber}} of {{pageCount}})');
+    }
+  },
+
+  /**
+   * @param {number} pageNumber
+   * @param {string} pageLabel
+   * @private
+   */
+  _updatePageNumberUI: function pdfView_updatePageNumberUI(pageNumber,
+                                                           pageLabel) {
+    if (!this.hasPageLabels) {
+      this.pageNumberInput.value = pageNumber;
+      this.pageNumberInput.title =
+        mozL10n.get('page_id.title', { page: pageNumber }, 'Page: {{page}}');
+    } else {
+      this.pageNumberInput.value = pageLabel;
+      this.pageNumberInput.title =
+        mozL10n.get('page_id.title', { page: pageLabel }, 'Page: {{page}}');
+      this.numPagesLabel.textContent = mozL10n.get('page_of_pages',
+        { pageNumber: pageNumber, pageCount: this.pagesCount },
+        '({{pageNumber}} of {{pageCount}})');
+    }
+  },
 };
 //#if GENERIC
 window.PDFView = PDFViewerApplication; // obsolete name, using it as an alias
@@ -1585,12 +1661,7 @@ function webViewerInitialized() {
   });
 
   document.getElementById('pageNumber').addEventListener('change', function() {
-    // Handle the user inputting a floating point number.
-    PDFViewerApplication.page = (this.value | 0);
-
-    if (this.value !== (this.value | 0).toString()) {
-      this.value = PDFViewerApplication.page;
-    }
+    PDFViewerApplication.pageLabel = this.value;
   });
 
   document.getElementById('scaleSelect').addEventListener('change', function() {
@@ -1675,7 +1746,7 @@ document.addEventListener('pagerendered', function (e) {
   // If the page is still visible when it has finished rendering,
   // ensure that the page number input loading indicator is hidden.
   if (pageNumber === PDFViewerApplication.page) {
-    var pageNumberInput = document.getElementById('pageNumber');
+    var pageNumberInput = PDFViewerApplication.pageNumberInput;
     pageNumberInput.classList.remove(PAGE_NUMBER_LOADING_INDICATOR);
   }
 
@@ -1753,7 +1824,7 @@ document.addEventListener('namedaction', function (e) {
   var action = e.detail.action;
   switch (action) {
     case 'GoToPage':
-      document.getElementById('pageNumber').focus();
+      PDFViewerApplication.pageNumberInput.focus();
       break;
 
     case 'Find':
@@ -1799,7 +1870,7 @@ window.addEventListener('updateviewarea', function (evt) {
                                                         location.pageNumber);
 
   // Show/hide the loading indicator in the page number input element.
-  var pageNumberInput = document.getElementById('pageNumber');
+  var pageNumberInput = PDFViewerApplication.pageNumberInput;
   var currentPage =
     PDFViewerApplication.pdfViewer.getPageView(PDFViewerApplication.page - 1);
 
@@ -1941,15 +2012,10 @@ window.addEventListener('scalechange', function scalechange(evt) {
 
 window.addEventListener('pagechange', function pagechange(evt) {
   var page = evt.pageNumber;
-  if (evt.previousPageNumber !== page) {
-    var pageNumberInput = document.getElementById('pageNumber');
-    pageNumberInput.value = page;
-    pageNumberInput.title =
-      mozL10n.get('page_id.title', { page: page }, 'Page: {{page}}');
+  PDFViewerApplication._updatePageNumberUI(page, evt.pageLabel);
 
-    if (PDFViewerApplication.sidebarOpen) {
-      PDFViewerApplication.pdfThumbnailViewer.scrollThumbnailIntoView(page);
-    }
+  if (evt.previousPageNumber !== page && PDFViewerApplication.sidebarOpen) {
+    PDFViewerApplication.pdfThumbnailViewer.scrollThumbnailIntoView(page);
   }
   var numPages = PDFViewerApplication.pagesCount;
 
@@ -2101,7 +2167,7 @@ window.addEventListener('keydown', function keydown(evt) {
         break;
       case 71: // g
         // focuses input#pageNumber field
-        document.getElementById('pageNumber').select();
+        PDFViewerApplication.pageNumberInput.select();
         handled = true;
         break;
     }

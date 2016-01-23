@@ -122,11 +122,20 @@ var PDFViewer = (function pdfViewer() {
       return this._pages[index];
     },
 
+    /**
+     * @returns {number}
+     */
     get currentPageNumber() {
       return this._currentPageNumber;
     },
 
+    /**
+     * @param {number} val - The page number.
+     */
     set currentPageNumber(val) {
+      if (isNaN(val)) {
+        throw new Error('Invalid page number.');
+      }
       if (!this.pdfDocument) {
         this._currentPageNumber = val;
         return;
@@ -139,6 +148,7 @@ var PDFViewer = (function pdfViewer() {
       if (!(0 < val && val <= this.pagesCount)) {
         event.pageNumber = this._currentPageNumber;
         event.previousPageNumber = val;
+        event.pageLabel = this.currentPageLabel;
         this.container.dispatchEvent(event);
         return;
       }
@@ -146,6 +156,7 @@ var PDFViewer = (function pdfViewer() {
       event.previousPageNumber = this._currentPageNumber;
       this._currentPageNumber = val;
       event.pageNumber = val;
+      event.pageLabel = this.currentPageLabel;
       this.container.dispatchEvent(event);
 
       // Check if the caller is `PDFViewer_update`, to avoid breaking scrolling.
@@ -153,6 +164,33 @@ var PDFViewer = (function pdfViewer() {
         return;
       }
       this.scrollPageIntoView(val);
+    },
+
+    /**
+     * @returns {string|null} - Returns the current page label,
+     *                          or `null` if no page labels exist.
+     */
+    get currentPageLabel() {
+      if (!this._pageLabels) {
+        return null;
+      }
+      var pageIndex = this._currentPageNumber - 1;
+      return this._pageLabels[pageIndex];
+    },
+
+    /**
+     * @param {string} val - The page label.
+     */
+    set currentPageLabel(val) {
+      var pageNumber = val | 0; // Fallback page number.
+
+      if (this._pageLabels) {
+        var i = this._pageLabels.indexOf(val);
+        if (i >= 0) {
+          pageNumber = i + 1;
+        }
+      }
+      this.currentPageNumber = pageNumber;
     },
 
     /**
@@ -341,11 +379,24 @@ var PDFViewer = (function pdfViewer() {
       }.bind(this));
     },
 
+    setPageLabels: function PDFViewer_setPageLabels(labels) {
+      if (!labels) {
+        this._pageLabels = null;
+        return;
+      }
+      if (!(labels instanceof Array) || !this.pdfDocument ||
+          this.pdfDocument.numPages !== labels.length) {
+        throw new Error('Invalid page labels.');
+      }
+      this._pageLabels = labels;
+    },
+
     _resetView: function () {
       this._pages = [];
       this._currentPageNumber = 1;
       this._currentScale = UNKNOWN_SCALE;
       this._currentScaleValue = null;
+      this._pageLabels = null;
       this._buffer = new PDFPageViewBuffer(DEFAULT_CACHE_SIZE);
       this._location = null;
       this._pagesRotation = 0;

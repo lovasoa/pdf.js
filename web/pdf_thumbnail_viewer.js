@@ -119,6 +119,7 @@ var PDFThumbnailViewer = (function PDFThumbnailViewerClosure() {
      */
     _resetView: function PDFThumbnailViewer_resetView() {
       this.thumbnails = [];
+      this._pageLabels = null;
       this._pagesRotation = 0;
       this._pagesRequests = [];
     },
@@ -152,6 +153,18 @@ var PDFThumbnailViewer = (function PDFThumbnailViewerClosure() {
           this.thumbnails.push(thumbnail);
         }
       }.bind(this));
+    },
+
+    setPageLabels: function PDFThumbnailViewer_setPageLabels(labels) {
+      if (!labels) {
+        this._pageLabels = null;
+        return;
+      }
+      if (!(labels instanceof Array) || !this.pdfDocument ||
+          this.pdfDocument.numPages !== labels.length) {
+        throw new Error('Invalid page labels.');
+      }
+      this._pageLabels = labels;
     },
 
     /**
