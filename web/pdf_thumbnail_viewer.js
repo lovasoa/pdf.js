@@ -158,6 +158,7 @@ var PDFThumbnailViewer = (function PDFThumbnailViewerClosure() {
     setPageLabels: function PDFThumbnailViewer_setPageLabels(labels) {
       if (!labels) {
         this._pageLabels = null;
+        this._updatePageLabels();
         return;
       }
       if (!(labels instanceof Array) || !this.pdfDocument ||
@@ -165,6 +166,18 @@ var PDFThumbnailViewer = (function PDFThumbnailViewerClosure() {
         throw new Error('Invalid page labels.');
       }
       this._pageLabels = labels;
+      this._updatePageLabels();
+    },
+
+    /**
+     * @private
+     */
+    _updatePageLabels: function PDFThumbnailViewer_updatePageLabels() {
+      for (var i = 0, ii = this.thumbnails.length; i < ii; i++) {
+        var thumbnail = this.thumbnails[i];
+        var label = this._pageLabels && this._pageLabels[i];
+        thumbnail.setPageLabel(label);
+      }
     },
 
     /**

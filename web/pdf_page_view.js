@@ -51,6 +51,7 @@ var PDFPageView = (function PDFPageViewClosure() {
 
     this.id = id;
     this.renderingId = 'page' + id;
+    this.pageLabel = null;
 
     this.rotation = 0;
     this.scale = scale || DEFAULT_SCALE;
@@ -80,6 +81,9 @@ var PDFPageView = (function PDFPageViewClosure() {
     div.style.width = Math.floor(this.viewport.width) + 'px';
     div.style.height = Math.floor(this.viewport.height) + 'px';
     div.setAttribute('data-page-number', this.id);
+    if (this.pageLabel !== null) {
+      div.setAttribute('data-page-label', this.pageLabel);
+    }
     this.div = div;
 
     container.appendChild(div);
@@ -182,6 +186,7 @@ var PDFPageView = (function PDFPageViewClosure() {
           var event = document.createEvent('CustomEvent');
           event.initCustomEvent('pagerendered', true, true, {
             pageNumber: this.id,
+            pageLabel: this.pageLabel,
             cssTransform: true,
           });
           this.div.dispatchEvent(event);
@@ -435,6 +440,7 @@ var PDFPageView = (function PDFPageViewClosure() {
         var event = document.createEvent('CustomEvent');
         event.initCustomEvent('pagerendered', true, true, {
           pageNumber: self.id,
+          pageLabel: self.pageLabel,
           cssTransform: false,
         });
         div.dispatchEvent(event);
@@ -581,6 +587,14 @@ var PDFPageView = (function PDFPageViewClosure() {
           }
         });
       };
+    },
+
+    setPageLabel: function PDFView_setPageLabel(label) {
+      this.pageLabel = label;
+
+      if (this.div) {
+        this.div.setAttribute('data-page-label', this.pageLabel);
+      }
     },
   };
 

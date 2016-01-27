@@ -68,6 +68,7 @@ var PDFThumbnailView = (function PDFThumbnailViewClosure() {
 
     this.id = id;
     this.renderingId = 'thumbnail' + id;
+    this.pageLabel = null;
 
     this.pdfPage = null;
     this.rotation = 0;
@@ -91,11 +92,14 @@ var PDFThumbnailView = (function PDFThumbnailViewClosure() {
 
     var anchor = document.createElement('a');
     anchor.href = linkService.getAnchorUrl('#page=' + id);
-    anchor.title = mozL10n.get('thumb_page_title', {page: id}, 'Page {{page}}');
+    var pageId = this.pageLabel !== null ? this.pageLabel : this.id;
+    anchor.title =
+      mozL10n.get('thumb_page_title', { page: pageId }, 'Page {{page}}');
     anchor.onclick = function stopNavigation() {
       linkService.page = id;
       return false;
     };
+    this.anchor = anchor;
 
     var div = document.createElement('div');
     div.id = 'thumbnailContainer' + id;
@@ -207,8 +211,9 @@ var PDFThumbnailView = (function PDFThumbnailViewClosure() {
 
       image.id = this.renderingId;
       image.className = 'thumbnailImage';
+      var pageId = this.pageLabel !== null ? this.pageLabel : this.id;
       image.setAttribute('aria-label', mozL10n.get('thumb_page_canvas',
-        { page: this.id }, 'Thumbnail of Page {{page}}'));
+        { page: pageId }, 'Thumbnail of Page {{page}}'));
 
       image.style.width = canvas.style.width;
       image.style.height = canvas.style.height;
@@ -348,7 +353,21 @@ var PDFThumbnailView = (function PDFThumbnailViewClosure() {
       ctx.drawImage(reducedImage, 0, 0, reducedWidth, reducedHeight,
                     0, 0, canvas.width, canvas.height);
       this._convertCanvasToImage();
-    }
+    },
+
+    setPageLabel: function PDFThumbnailView_setPageLabel(label) {
+      this.pageLabel = label;
+      var pageId = this.pageLabel !== null ? this.pageLabel : this.id;
+
+      if (this.anchor) {
+        this.anchor.title =
+          mozL10n.get('thumb_page_title', { page: pageId }, 'Page {{page}}');
+      }
+      if (this.image) {
+        this.image.setAttribute('aria-label', mozL10n.get('thumb_page_canvas',
+          { page: pageId }, 'Thumbnail of Page {{page}}'));
+      }
+    },
   };
 
   return PDFThumbnailView;
