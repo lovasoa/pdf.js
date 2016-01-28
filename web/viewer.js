@@ -1942,7 +1942,11 @@ window.addEventListener('scalechange', function scalechange(evt) {
 window.addEventListener('pagechange', function pagechange(evt) {
   var page = evt.pageNumber;
   if (evt.previousPageNumber !== page) {
-    document.getElementById('pageNumber').value = page;
+    var pageNumberInput = document.getElementById('pageNumber');
+    pageNumberInput.value = page;
+    pageNumberInput.title =
+      mozL10n.get('page_id.title', { page: page }, 'Page: {{page}}');
+
     if (PDFViewerApplication.sidebarOpen) {
       PDFViewerApplication.pdfThumbnailViewer.scrollThumbnailIntoView(page);
     }
