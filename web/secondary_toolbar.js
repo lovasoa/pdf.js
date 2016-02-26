@@ -34,6 +34,7 @@ var SecondaryToolbar = {
     this.viewBookmark = options.viewBookmark;
     this.firstPage = options.firstPage;
     this.lastPage = options.lastPage;
+    this.renumber = options.renumber;
     this.pageRotateCw = options.pageRotateCw;
     this.pageRotateCcw = options.pageRotateCcw;
     this.documentPropertiesButton = options.documentPropertiesButton;
@@ -52,6 +53,7 @@ var SecondaryToolbar = {
       { element: this.viewBookmark, handler: this.viewBookmarkClick },
       { element: this.firstPage, handler: this.firstPageClick },
       { element: this.lastPage, handler: this.lastPageClick },
+      { element: this.renumber, handler: this.renumberClick },
       { element: this.pageRotateCw, handler: this.pageRotateCwClick },
       { element: this.pageRotateCcw, handler: this.pageRotateCcwClick },
       { element: this.documentPropertiesButton,
@@ -100,6 +102,20 @@ var SecondaryToolbar = {
     if (PDFViewerApplication.pdfDocument) {
       PDFViewerApplication.page = PDFViewerApplication.pagesCount;
     }
+    this.close();
+  },
+
+  renumberClick: function secondaryToolbarRenumberClick(evt) {
+    var labels = [];
+    var viewer = PDFViewerApplication.pdfViewer;
+    var i = viewer.currentPageNumber - 1;
+    var label = "";
+    while (labels.length < viewer.pagesCount) {
+      label = (labels.length < i) ? ("intro-" + (labels.length + 1))
+                                  : (labels.length - i + 1).toString();
+      labels.push(label);
+    }
+    PDFViewerApplication.setPageLabels(labels);
     this.close();
   },
 

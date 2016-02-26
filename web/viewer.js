@@ -213,6 +213,7 @@ var PDFViewerApplication = {
       viewBookmark: document.getElementById('secondaryViewBookmark'),
       firstPage: document.getElementById('firstPage'),
       lastPage: document.getElementById('lastPage'),
+      renumber: document.getElementById('renumber'),
       pageRotateCw: document.getElementById('pageRotateCw'),
       pageRotateCcw: document.getElementById('pageRotateCcw'),
       documentPropertiesButton: document.getElementById('documentProperties')
@@ -951,10 +952,7 @@ var PDFViewerApplication = {
       if (i === ii) {
         return;
       }
-      pdfViewer.setPageLabels(labels);
-      pdfThumbnailViewer.setPageLabels(labels);
-
-      self._resetPageNumberUI(labels);
+      self.setPageLabels(labels);
     });
 
     pagesPromise.then(function() {
@@ -1339,6 +1337,16 @@ var PDFViewerApplication = {
       return;
     }
     this.pdfPresentationMode.mouseScroll(delta);
+  },
+
+  /**
+   * @param {Array|null} pageLabels
+   */
+  setPageLabels: function pdfView_setPageLabels (pageLabels) {
+    this.pdfViewer.setPageLabels(pageLabels);
+    this.pdfThumbnailViewer.setPageLabels(pageLabels);
+
+    this._resetPageNumberUI(pageLabels);
   },
 
   /**
